@@ -1,8 +1,12 @@
+import os
+import sys
 from math import  * 
 from pygame import Vector3, Vector2
 from matplotlib import pyplot as plt
 from matplotlib import animation
+import matplotlib
 import numpy as np
+import multiprocessing as mp
 
 class ABCD:
     def __init__(self, a, b, c, d):
@@ -79,24 +83,25 @@ class BowlingBall:
     r0 = Vector3(0, 0.001, 0)
     TimeStep = 0.0001
     Graph_sample_interval = 100
-    plotList = []
-    plotTotalLength = 0
-    def __init__(self,RevAngle:int=0,ThrowAngle:int=0, startYPos:float=1/2,rev:float=30):
+    # def __init__(self,revangle:int=0,throwangle:int=0, startpos:float=1/2,rev:float=30):
+    def __init__(self,**kwargs):
+        
         """Initializes BowlingBall class
 
         Args:
-            RevAngle (float, optional): sets the angle of angular velocity to x degrees left of the y axis. Defaults to 0.
-            ThrowAngle (float, optional): angle that the velocity starts at. Defaults to 0.
-            startYPos (float, optional): percentage of . Defaults to 1/2.
+            revangle (float, optional): sets the angle of angular velocity to x degrees left of the y axis. Defaults to 0.
+            throwangle (float, optional): angle that the velocity starts at. Defaults to 0.
+            startpos (float, optional): percentage of . Defaults to 1/2.
             rev (float, optional): _description_. Defaults to 30.
         """
         self.Running = False
         self._Rolling = False
         self.Time = 0
-        self.position = Vector2(0, self.MaxY*startYPos)
-        self.velocity = Vector2(8, 0).rotate(ThrowAngle)
+        self.position = Vector2(0, self.MaxY*kwargs.get("startpos",1/2))
+        self.velocity = Vector2(8, 0).rotate(kwargs.get("throwangle",0))
         self.acceleration = Vector2(0, 0)
-        angle = radians(RevAngle)
+        angle = radians(kwargs.get("revangle",0))
+        rev = kwargs.get("rev",30)
         self.angularVelocity = Vector3(-rev*sin(angle), rev*cos(angle), 0)
         # self.angularVelocity = Vector3(0, 30, 0)
         
@@ -325,10 +330,12 @@ class BowlingBall:
       
     def plot(self):
         
-        line, = self.ax.plot(self._notRollingPositions[0],self._notRollingPositions[1],color="red",label="Not Rolling",linewidth=2,animated=True)
-        line2, = self.ax.plot(self._RollingPositions[0],self._RollingPositions[1],color="green",label="Rolling",linewidth=2,animated=True)
+        self._notRollingPositions[0].append(self._RollingPositions[0][-1])
+        self._notRollingPositions[1].append(self._RollingPositions[1][-1])
+        line, = self.ax.plot(self._notRollingPositions[0],self._notRollingPositions[1],color="red",label="Not Rolling",linewidth=2,animated=Animate)
+        line2, = self.ax.plot(self._RollingPositions[0],self._RollingPositions[1],color="green",label="Rolling",linewidth=2,animated=Animate)
         
-        bp, = self.ax.plot(meter2feet(self._breakPointX),meter2inch(self._lowestY),'o',color="orange",label="Break Point",animated=True)
+        bp, = self.ax.plot(meter2feet(self._breakPointX),meter2inch(self._lowestY),'o',color="orange",label="Break Point",animated=Animate)
         self.ax.axis([0,60,0,39])
         print(f"Break Point: {meter2feet(self._breakPointX)} feet")
         print(f"Lowest Point: {meter2inch(self._lowestY)} inches")
@@ -349,10 +356,22 @@ class BowlingBall:
         return s
         
         
+def startSimulation(dict):
+    print("Starting Simulation")
+   
+    Bowling = BowlingBall(**dict)
+    Bowling.start()
+    return Bowling
 
 
-
+Animate = False
 if __name__ == "__main__":
+    
+    for arg in sys.argv:
+        if arg.split("=")[0].lower() == "animate":
+            if arg.split("=")[1].lower() == "true":
+                Animate = True
+    print(f"{Animate=}")
     meter = lambda x: x*0.3048
     feet = lambda x: x*3.28084
     # rpm to rad/s in lambda
@@ -368,6 +387,7 @@ if __name__ == "__main__":
     BowlingBall.ax.set_title("Bowling Ball Trajectory")
     BowlingBall.ax.set_xticks(np.arange(0,60+1,1))
     
+    
     tempx = [feet(BowlingBall.oil_length) for i in range(0,40)]
     tempy = [i for i in range(0,40)]
     BowlingBall.ax.plot(tempx,tempy,color="black",alpha=0.5)
@@ -375,13 +395,20 @@ if __name__ == "__main__":
     increment = 0
     plotTotalLength = 0
     plotlist = []
-    BowlingBall.Graph_sample_interval = 200
-    for increment in range(-1,2,1):
-        Bowling = BowlingBall(RevAngle=15,ThrowAngle=-7+increment/2,rev=30,startYPos=6/7)
-        Bowling.start()
+    mpResults = []
+    BowlingBall.Graph_sample_interval = 100
+    print("cpu count:",mp.cpu_count())
+    runRange = range(-1,2,1)
+    args = ({"revangle":15,"throwangle":-7+increment/2,"rev":30,"startpos":6/7} for increment in runRange)
+
+    with mp.Pool(min(len(list(runRange)),mp.cpu_count())) as p:
+        mpResults = p.map(startSimulation,args)
+    
+    for Bowling in mpResults:
         plot = Bowling.plot()
         plotTotalLength = max(plot.totalLength,plotTotalLength)
         plotlist.append(plot)
+    
     BowlingBall.fig.canvas.draw()
         
    
@@ -391,9 +418,21 @@ if __name__ == "__main__":
             line1,line2 = object.animate(i)
             lines += [line1,line2]
         return tuple(lines)
-    
-    anim = animation.FuncAnimation(BowlingBall.fig,animate,frames=plotTotalLength,interval=0,blit=True,repeat=True)
     plt.legend(["Oil Pattern end","Not Rolling","Rolling"])
+    if Animate:
+        matplotlib.rcParams['animation.ffmpeg_path'] = "C:\\Program Files\\ffmpeg\\bin\\ffmpeg.exe"
+        anim = animation.FuncAnimation(BowlingBall.fig,animate,frames=plotTotalLength,interval=1,blit=True,repeat=True,repeat_delay=1000)
+        writer = animation.FFMpegWriter(fps=200,bitrate=10000)
 
+        n = 0
+        while os.path.exists(f".\\out\\BowlingBall{n}.mp4"):
+            n += 1
+        
+        anim.save(f".\\out\\BowlingBall{n}.mp4",writer=writer,dpi=200)
+    else:
+        plt.savefig(".\\out\\BowlingBall.png",dpi=1000)
+    # slow fps for gif
+    # anim.save("BowlingBall.gif",writer="pillow",fps=plotTotalLength,dpi=100)
+    
     plt.show()
     
