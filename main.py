@@ -347,15 +347,10 @@ class BowlingBall:
                 s = "".join([s,f"{i} = {self.__dict__[i]}\n"])
         s= "".join([s,"=".center(50,"=")])
         return s
-    @staticmethod
-    def show(self):
         
         
 
 
-xlist = []
-ylist = []
-j = 0
 
 if __name__ == "__main__":
     meter = lambda x: x*0.3048
@@ -389,19 +384,7 @@ if __name__ == "__main__":
         plotlist.append(plot)
     BowlingBall.fig.canvas.draw()
         
-    # def animate(i):
-        
-    #     for slide,roll in zip(lines1,lines2):
-            
-    #         if i < len(Bowling._notRollingPositions[0]):
-    #             slide.set_data(Bowling._notRollingPositions[0][:i],Bowling._notRollingPositions[1][:i])
-    #             roll.set_data([],[])
-    #         elif i < len(Bowling._notRollingPositions[0])+len(Bowling._RollingPositions[0]):
-    #             slide.set_data(Bowling._notRollingPositions[0],Bowling._notRollingPositions[1])
-    #             roll.set_data(Bowling._RollingPositions[0][:i-len(Bowling._notRollingPositions[0])],Bowling._RollingPositions[1][:i-len(Bowling._notRollingPositions[0])])
-    #     return line,line2,
-        
-    
+   
     def animate(i):
         lines = []
         for object in plotlist:
