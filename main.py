@@ -419,6 +419,8 @@ if __name__ == "__main__":
             lines += [line1,line2]
         return tuple(lines)
     plt.legend(["Oil Pattern end","Not Rolling","Rolling"])
+    if os.path.exists(".\\out") == False:
+        os.mkdir(".\\out")
     if Animate:
         matplotlib.rcParams['animation.ffmpeg_path'] = "C:\\Program Files\\ffmpeg\\bin\\ffmpeg.exe"
         anim = animation.FuncAnimation(BowlingBall.fig,animate,frames=plotTotalLength,interval=1,blit=True,repeat=True,repeat_delay=1000)
