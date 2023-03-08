@@ -1,6 +1,7 @@
 import os
 import sys
 from math import  * 
+import pygame
 from pygame import Vector3, Vector2
 from matplotlib import pyplot as plt
 from matplotlib import animation
@@ -31,7 +32,6 @@ class PlotBowlingBall:
         self.rollingPositions:list[list] = rollingPositions
         self.notRollingPositions:list[list] = notRollingPositions
         self.totalLength = len(self.rollingPositions[0])+len(self.notRollingPositions[0])
-        print(self.totalLength)
         self.startOffset = 0
         self.rollingPositions[0].insert(0,self.notRollingPositions[0][-1])
         self.rollingPositions[1].insert(0,self.notRollingPositions[1][-1])
@@ -48,13 +48,9 @@ class PlotBowlingBall:
             else:
                 i3 = i2-len(self.notRollingPositions[0])
                 self.slide.set_data(self.notRollingPositions[0][:],self.notRollingPositions[1][:])
-                # self.slide.set_data([],[])
                 self.roll.set_data(self.rollingPositions[0][:i3],self.rollingPositions[1][:i3])
                 
-        # elif i > self.startOffset+self.totalLength:
-        #     print("Done")
-        #     self.slide.set_data(self.notRollingPositions[0][:],self.notRollingPositions[1][:])
-        #     self.roll.set_data(self.rollingPositions[0][:],self.rollingPositions[1][:])
+        
             
         else:
             self.slide.set_data([],[])
@@ -154,7 +150,7 @@ class BowlingBall:
             
             self.update()
             self.Time = round(self.Time + self.TimeStep,4)
-        print(self._breakPointX,self._lowestY)
+        # print(self._breakPointX,self._lowestY)
         
 
 
@@ -337,9 +333,6 @@ class BowlingBall:
         
         bp, = self.ax.plot(meter2feet(self._breakPointX),meter2inch(self._lowestY),'o',color="orange",label="Break Point",animated=Animate)
         self.ax.axis([0,60,0,39])
-        print(f"Break Point: {meter2feet(self._breakPointX)} feet")
-        print(f"Lowest Point: {meter2inch(self._lowestY)} inches")
-        print(f"Hook: {meter2inch(self._hookFromBreakPoint)} inches")
         plot = PlotBowlingBall(line,line2,self._RollingPositions,self._notRollingPositions)
         return plot
         
@@ -354,19 +347,25 @@ class BowlingBall:
                 s = "".join([s,f"{i} = {self.__dict__[i]}\n"])
         s= "".join([s,"=".center(50,"=")])
         return s
-        
-        
+
 def startSimulation(dict):
-    print("Starting Simulation")
-   
+    print(f"Starting Simulation: increment={dict.get('id',None)}")
+    
     Bowling = BowlingBall(**dict)
     Bowling.start()
     return Bowling
 
-
+def outputIndexer(filename:str):
+    ext = filename.split(".")[-1]
+    filename = filename.replace(f".{ext}","")
+    n = 0
+    while True:
+        if not os.path.exists(f".\\out\\{filename}{n}.{ext}"):
+            return f".\\out\\{filename}{n}.{ext}"
+        n+=1
 Animate = False
 if __name__ == "__main__":
-    
+    pygame.init()
     for arg in sys.argv:
         if arg.split("=")[0].lower() == "animate":
             if arg.split("=")[1].lower() == "true":
@@ -392,18 +391,25 @@ if __name__ == "__main__":
     tempy = [i for i in range(0,40)]
     BowlingBall.ax.plot(tempx,tempy,color="black",alpha=0.5)
     BowlingBall.ax.grid(color="black",alpha=0.5)
-    increment = 0
-    plotTotalLength = 0
-    plotlist = []
-    mpResults = []
     BowlingBall.Graph_sample_interval = 100
     print("cpu count:",mp.cpu_count())
     runRange = range(-1,2,1)
-    args = ({"revangle":15,"throwangle":-7+increment/2,"rev":30,"startpos":6/7} for increment in runRange)
+    increment = 0
+    args = (
+        {
+        "revangle":15,
+        "throwangle":-7+increment/2,
+        "rev":30,
+        "startpos":6/7,
+        "id":increment
+        } for increment in runRange)
 
+    mpResults = []
     with mp.Pool(min(len(list(runRange)),mp.cpu_count())) as p:
         mpResults = p.map(startSimulation,args)
     
+    plotlist = []
+    plotTotalLength = 0
     for Bowling in mpResults:
         plot = Bowling.plot()
         plotTotalLength = max(plot.totalLength,plotTotalLength)
@@ -418,7 +424,8 @@ if __name__ == "__main__":
             line1,line2 = object.animate(i)
             lines += [line1,line2]
         return tuple(lines)
-    plt.legend(["Oil Pattern end","Not Rolling","Rolling"])
+    
+    plt.legend(["Oil Pattern end","Not Rolling","Rolling"],loc="lower right")
     if os.path.exists(".\\out") == False:
         os.mkdir(".\\out")
     if Animate:
@@ -426,15 +433,12 @@ if __name__ == "__main__":
         anim = animation.FuncAnimation(BowlingBall.fig,animate,frames=plotTotalLength,interval=1,blit=True,repeat=True,repeat_delay=1000)
         writer = animation.FFMpegWriter(fps=200,bitrate=10000)
 
-        n = 0
-        while os.path.exists(f".\\out\\BowlingBall{n}.mp4"):
-            n += 1
         
-        anim.save(f".\\out\\BowlingBall{n}.mp4",writer=writer,dpi=200)
+        anim.save(outputIndexer("BowlingBall.mp4"),writer=writer,dpi=200)
     else:
-        plt.savefig(".\\out\\BowlingBall.png",dpi=1000)
-    # slow fps for gif
-    # anim.save("BowlingBall.gif",writer="pillow",fps=plotTotalLength,dpi=100)
+        
+        plt.savefig(outputIndexer("BowlingBall.png"),dpi=1000)
+    
     
     plt.show()
     
