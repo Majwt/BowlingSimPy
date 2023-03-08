@@ -1,8 +1,13 @@
-from math import  * 
-from pygame import Vector3, Vector2
 from matplotlib import pyplot as plt
-from matplotlib import animation
+from pygame import Vector3, Vector2
+from math import  *
 import numpy as np
+import matplotlib
+from Utils import *
+import multiprocessing as mp
+matplotlib.rcParams['animation.ffmpeg_path'] = "C:\\Program Files\\ffmpeg\\bin\\ffmpeg.exe"
+
+
 
 class ABCD:
     def __init__(self, a, b, c, d):
@@ -12,53 +17,6 @@ class ABCD:
         self.d = d
     def __repr__(self) -> str:
         return f"ABCD({round(self.a,5)}, {round(self.b,5)}, {round(self.c,5)}, {round(self.d,5)})"
-
-def meter2feet(x):
-    return x*3.28084
-def feet2meter(x):
-    return x/3.28084
-def meter2inch(x):
-    return x*39.3701
-
-class PlotBowlingBall:
-    def __init__(self,slide,roll,rollingPositions:list[list],notRollingPositions:list[list]):
-        self.slide = slide
-        self.roll = roll
-        self.rollingPositions:list[list] = rollingPositions
-        self.notRollingPositions:list[list] = notRollingPositions
-        self.totalLength = len(self.rollingPositions[0])+len(self.notRollingPositions[0])
-        print(self.totalLength)
-        self.startOffset = 0
-        self.rollingPositions[0].insert(0,self.notRollingPositions[0][-1])
-        self.rollingPositions[1].insert(0,self.notRollingPositions[1][-1])
-    
-    def animate(self,i):
-        if i > self.startOffset:
-            i2 = i-self.startOffset
-            # Animate rolling
-            if i2 < len(self.notRollingPositions[0]):
-                self.slide.set_data(self.notRollingPositions[0][:i2],self.notRollingPositions[1][:i2])
-                self.roll.set_data([],[])
-            
-            # Animate not rolling
-            else:
-                i3 = i2-len(self.notRollingPositions[0])
-                self.slide.set_data(self.notRollingPositions[0][:],self.notRollingPositions[1][:])
-                # self.slide.set_data([],[])
-                self.roll.set_data(self.rollingPositions[0][:i3],self.rollingPositions[1][:i3])
-                
-        # elif i > self.startOffset+self.totalLength:
-        #     print("Done")
-        #     self.slide.set_data(self.notRollingPositions[0][:],self.notRollingPositions[1][:])
-        #     self.roll.set_data(self.rollingPositions[0][:],self.rollingPositions[1][:])
-            
-        else:
-            self.slide.set_data([],[])
-            self.roll.set_data([],[])
-        return self.slide, self.roll,
-            
-            
-
 
 class BowlingBall:
     fig = plt.figure()
@@ -71,7 +29,7 @@ class BowlingBall:
     Mass = 7
     Radius = 0.1085
     MomentsOfInertia = Vector3(0.031, 0.033, 0.033)
-    oil_length = 12
+    oil_length = feet2meter(42)
     noOil_k_friction = 0.2
     oil_k_friction = 0.04
     k_friction = noOil_k_friction
@@ -79,24 +37,31 @@ class BowlingBall:
     r0 = Vector3(0, 0.001, 0)
     TimeStep = 0.0001
     Graph_sample_interval = 100
-    plotList = []
-    plotTotalLength = 0
-    def __init__(self,RevAngle:int=0,ThrowAngle:int=0, startYPos:float=1/2,rev:float=30):
+    isAnimated = False
+    # def __init__(self,revangle:int=0,throwangle:int=0, startpos:float=1/2,rev:float=30):
+    def __init__(self,**kwargs):
+        
         """Initializes BowlingBall class
 
         Args:
-            RevAngle (float, optional): sets the angle of angular velocity to x degrees left of the y axis. Defaults to 0.
-            ThrowAngle (float, optional): angle that the velocity starts at. Defaults to 0.
-            startYPos (float, optional): percentage of . Defaults to 1/2.
+            revangle (float, optional): sets the angle of angular velocity to x degrees left of the y axis. Defaults to 0.
+            throwangle (float, optional): angle that the velocity starts at. Defaults to 0.
+            startpos (float, optional): percentage of . Defaults to 1/2.
             rev (float, optional): _description_. Defaults to 30.
         """
+        self.ax.plot([meter2feet(self.oil_length) for i in range(0,40)],[i for i in range(0,40)],color="black",alpha=0.5)
+        self.ax.grid(color="black",alpha=0.5)
+        
+        self.ax.set_title("Bowling Ball Trajectory")
+        self.ax.set_xticks(np.arange(0,60+1,1))
         self.Running = False
         self._Rolling = False
         self.Time = 0
-        self.position = Vector2(0, self.MaxY*startYPos)
-        self.velocity = Vector2(8, 0).rotate(ThrowAngle)
+        self.position = Vector2(0, self.MaxY*kwargs.get("startpos",1/2))
+        self.velocity = Vector2(8, 0).rotate(kwargs.get("throwangle",0))
         self.acceleration = Vector2(0, 0)
-        angle = radians(RevAngle)
+        angle = radians(kwargs.get("revangle",0))
+        rev = kwargs.get("rev",30)
         self.angularVelocity = Vector3(-rev*sin(angle), rev*cos(angle), 0)
         # self.angularVelocity = Vector3(0, 30, 0)
         
@@ -128,13 +93,10 @@ class BowlingBall:
         self._lowestY = 100
         self._hookFromBreakPoint = 0
         self._breakPointTime = 0
-        
-        
-        
-        
+    
 
 
-    def start(self):
+    def run(self):
         self.Running = True
         while self.Running:
             
@@ -149,7 +111,7 @@ class BowlingBall:
             
             self.update()
             self.Time = round(self.Time + self.TimeStep,4)
-        print(self._breakPointX,self._lowestY)
+        
         
 
 
@@ -322,17 +284,15 @@ class BowlingBall:
         self._Vp.x = self.velocity.x-self.Radius*self.angularVelocity.y
         self._Vp.y = self.velocity.y+self.Radius*self.angularVelocity.x
         
-      
     def plot(self):
         
-        line, = self.ax.plot(self._notRollingPositions[0],self._notRollingPositions[1],color="red",label="Not Rolling",linewidth=2,animated=True)
-        line2, = self.ax.plot(self._RollingPositions[0],self._RollingPositions[1],color="green",label="Rolling",linewidth=2,animated=True)
+        self._notRollingPositions[0].append(self._RollingPositions[0][0])
+        self._notRollingPositions[1].append(self._RollingPositions[1][0])
+        line, = self.ax.plot(self._notRollingPositions[0],self._notRollingPositions[1],color="red",label="Sliding",linewidth=2,animated=self.isAnimated)
+        line2, = self.ax.plot(self._RollingPositions[0],self._RollingPositions[1],color="green",label="Rolling",linewidth=2,animated=self.isAnimated)
         
-        bp, = self.ax.plot(meter2feet(self._breakPointX),meter2inch(self._lowestY),'o',color="orange",label="Break Point",animated=True)
+        bp, = self.ax.plot(meter2feet(self._breakPointX),meter2inch(self._lowestY),'o',color="orange",label="Break Point",animated=self.isAnimated)
         self.ax.axis([0,60,0,39])
-        print(f"Break Point: {meter2feet(self._breakPointX)} feet")
-        print(f"Lowest Point: {meter2inch(self._lowestY)} inches")
-        print(f"Hook: {meter2inch(self._hookFromBreakPoint)} inches")
         plot = PlotBowlingBall(line,line2,self._RollingPositions,self._notRollingPositions)
         return plot
         
@@ -347,53 +307,37 @@ class BowlingBall:
                 s = "".join([s,f"{i} = {self.__dict__[i]}\n"])
         s= "".join([s,"=".center(50,"=")])
         return s
-        
-        
+    @staticmethod
+    def StartSimulation(params,runRangeLen:int,Animate:bool=False,Save:bool=False):
+        Simulations = []
+        with mp.Pool(min(runRangeLen,mp.cpu_count())) as pool:
+            Simulations = pool.map(spawnChildProcess,params)
+        BowlingBall.isAnimated = Animate
+        plotlist = []
+        plotTotalLength = 0
+        for sim in Simulations:
+            plot = sim.plot()
+            plotTotalLength = max(plot.totalLength,plotTotalLength)
+            plotlist.append(plot)
 
+        BowlingBall.fig.set_figwidth(15)
+        BowlingBall.fig.set_figheight(4)
 
+        BowlingBall.ax.plot([meter2feet(BowlingBall.oil_length) for i in range(0,40)],[i for i in range(0,40)],label="Oil Pattern End",color="black",alpha=0.5)
+        BowlingBall.fig.canvas.draw()
+        BowlingBall.fig.legend(loc="lower right")
 
-if __name__ == "__main__":
-    meter = lambda x: x*0.3048
-    feet = lambda x: x*3.28084
-    # rpm to rad/s in lambda
-    rpm = lambda x: x*2*pi/60
+        anim = None
+        if Animate:
+            anim = animation.FuncAnimation(BowlingBall.fig,PlotBowlingBall.updateouter,frames=plotTotalLength,fargs=(plotlist),interval=1,blit=True,repeat=True,repeat_delay=1000)
+            
+        if Save:
+           PlotBowlingBall.savePlot("BowlingBall",anim)
+        return anim
     
-    BowlingBall.TimeStep = 0.0001
-    BowlingBall.oil_length = meter(42)
-    BowlingBall.oil_k_friction = 0.04
-    BowlingBall.noOil_k_friction = 0.2
-    
-    BowlingBall.fig.set_figwidth(15)
-    BowlingBall.fig.set_figheight(4)
-    BowlingBall.ax.set_title("Bowling Ball Trajectory")
-    BowlingBall.ax.set_xticks(np.arange(0,60+1,1))
-    
-    tempx = [feet(BowlingBall.oil_length) for i in range(0,40)]
-    tempy = [i for i in range(0,40)]
-    BowlingBall.ax.plot(tempx,tempy,color="black",alpha=0.5)
-    BowlingBall.ax.grid(color="black",alpha=0.5)
-    increment = 0
-    plotTotalLength = 0
-    plotlist = []
-    BowlingBall.Graph_sample_interval = 200
-    for increment in range(-1,2,1):
-        Bowling = BowlingBall(RevAngle=15,ThrowAngle=-7+increment/2,rev=30,startYPos=6/7)
-        Bowling.start()
-        plot = Bowling.plot()
-        plotTotalLength = max(plot.totalLength,plotTotalLength)
-        plotlist.append(plot)
-    BowlingBall.fig.canvas.draw()
-        
-   
-    def animate(i):
-        lines = []
-        for object in plotlist:
-            line1,line2 = object.animate(i)
-            lines += [line1,line2]
-        return tuple(lines)
-    
-    anim = animation.FuncAnimation(BowlingBall.fig,animate,frames=plotTotalLength,interval=0,blit=True,repeat=True)
-    plt.legend(["Oil Pattern end","Not Rolling","Rolling"])
+def spawnChildProcess(params):
+    print(f"Starting Simulation: increment={params.get('id',None)}")
 
-    plt.show()
-    
+    sim = BowlingBall(**params)
+    sim.run()
+    return sim
