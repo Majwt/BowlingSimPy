@@ -358,12 +358,14 @@ def startSimulation(dict):
 def outputIndexer(filename:str):
     ext = filename.split(".")[-1]
     filename = filename.replace(f".{ext}","")
+    if os.path.exists(".\\out") == False:
+        os.mkdir(".\\out")
     n = 0
     while True:
         if not os.path.exists(f".\\out\\{filename}{n}.{ext}"):
             return f".\\out\\{filename}{n}.{ext}"
         n+=1
-Animate = False
+Animate = True
 if __name__ == "__main__":
     pygame.init()
     for arg in sys.argv:
@@ -426,8 +428,7 @@ if __name__ == "__main__":
         return tuple(lines)
     
     plt.legend(["Oil Pattern end","Not Rolling","Rolling"],loc="lower right")
-    if os.path.exists(".\\out") == False:
-        os.mkdir(".\\out")
+    
     if Animate:
         matplotlib.rcParams['animation.ffmpeg_path'] = "C:\\Program Files\\ffmpeg\\bin\\ffmpeg.exe"
         anim = animation.FuncAnimation(BowlingBall.fig,animate,frames=plotTotalLength,interval=1,blit=True,repeat=True,repeat_delay=1000)
