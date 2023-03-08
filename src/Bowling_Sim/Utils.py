@@ -37,16 +37,21 @@ class PlotBowlingBall:
             self.slide.set_data([],[])
             self.roll.set_data([],[])
         return self.slide, self.roll,
+    @staticmethod
+    def savePlot(filename,anim = None):
+        plt.savefig(outputIndexer(f"{filename}.png"),dpi=1000)
+        if anim is not None:
+            writer = animation.FFMpegWriter(fps=200,bitrate=10000)
+            anim.save(outputIndexer(f"{filename}.mp4"),writer=writer,dpi=200)
 
-    def save(self,filename):
-        plt.savefig(outputIndexer("BowlingBall.png"),dpi=1000)
-
-        # writer = animation.FFMpegWriter(fps=200,bitrate=10000)
-
+    @staticmethod
+    def updateouter(i,*plist):
+        lines = []
         
-        # anim.save(outputIndexer("BowlingBall.mp4"),writer=writer,dpi=200)
-    
-
+        for object in plist:
+            Slide,Roll = object.update(i)
+            lines += [Slide,Roll]
+        return tuple(lines)
 
 def outputIndexer(filename:str):
     ext = filename.split(".")[-1]

@@ -4,6 +4,9 @@ from math import  *
 import numpy as np
 import matplotlib
 from Utils import *
+import multiprocessing as mp
+matplotlib.rcParams['animation.ffmpeg_path'] = "C:\\Program Files\\ffmpeg\\bin\\ffmpeg.exe"
+
 
 
 class ABCD:
@@ -90,14 +93,10 @@ class BowlingBall:
         self._lowestY = 100
         self._hookFromBreakPoint = 0
         self._breakPointTime = 0
-        
-        
-    @staticmethod
-    def getFig():
-        return BowlingBall.fig
+    
 
 
-    def start(self):
+    def run(self):
         self.Running = True
         while self.Running:
             
@@ -112,7 +111,7 @@ class BowlingBall:
             
             self.update()
             self.Time = round(self.Time + self.TimeStep,4)
-        # print(self._breakPointX,self._lowestY)
+        
         
 
 
@@ -285,12 +284,11 @@ class BowlingBall:
         self._Vp.x = self.velocity.x-self.Radius*self.angularVelocity.y
         self._Vp.y = self.velocity.y+self.Radius*self.angularVelocity.x
         
-      
     def plot(self):
         
-        self._notRollingPositions[0].append(self._RollingPositions[0][-1])
-        self._notRollingPositions[1].append(self._RollingPositions[1][-1])
-        line, = self.ax.plot(self._notRollingPositions[0],self._notRollingPositions[1],color="red",label="Not Rolling",linewidth=2,animated=self.isAnimated)
+        self._notRollingPositions[0].append(self._RollingPositions[0][0])
+        self._notRollingPositions[1].append(self._RollingPositions[1][0])
+        line, = self.ax.plot(self._notRollingPositions[0],self._notRollingPositions[1],color="red",label="Sliding",linewidth=2,animated=self.isAnimated)
         line2, = self.ax.plot(self._RollingPositions[0],self._RollingPositions[1],color="green",label="Rolling",linewidth=2,animated=self.isAnimated)
         
         bp, = self.ax.plot(meter2feet(self._breakPointX),meter2inch(self._lowestY),'o',color="orange",label="Break Point",animated=self.isAnimated)
@@ -309,3 +307,37 @@ class BowlingBall:
                 s = "".join([s,f"{i} = {self.__dict__[i]}\n"])
         s= "".join([s,"=".center(50,"=")])
         return s
+    @staticmethod
+    def StartSimulation(params,runRangeLen:int,Animate:bool=False,Save:bool=False):
+        Simulations = []
+        with mp.Pool(min(runRangeLen,mp.cpu_count())) as pool:
+            Simulations = pool.map(spawnChildProcess,params)
+        BowlingBall.isAnimated = Animate
+        plotlist = []
+        plotTotalLength = 0
+        for sim in Simulations:
+            plot = sim.plot()
+            plotTotalLength = max(plot.totalLength,plotTotalLength)
+            plotlist.append(plot)
+
+        BowlingBall.fig.set_figwidth(15)
+        BowlingBall.fig.set_figheight(4)
+
+        BowlingBall.ax.plot([meter2feet(BowlingBall.oil_length) for i in range(0,40)],[i for i in range(0,40)],label="Oil Pattern End",color="black",alpha=0.5)
+        BowlingBall.fig.canvas.draw()
+        BowlingBall.fig.legend(loc="lower right")
+
+        anim = None
+        if Animate:
+            anim = animation.FuncAnimation(BowlingBall.fig,PlotBowlingBall.updateouter,frames=plotTotalLength,fargs=(plotlist),interval=1,blit=True,repeat=True,repeat_delay=1000)
+            
+        if Save:
+           PlotBowlingBall.savePlot("BowlingBall",anim)
+        return anim
+    
+def spawnChildProcess(params):
+    print(f"Starting Simulation: increment={params.get('id',None)}")
+
+    sim = BowlingBall(**params)
+    sim.run()
+    return sim
